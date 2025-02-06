@@ -36,8 +36,6 @@ mongoose.connect(MONGOURL)
     if (error.reason) console.error("Error reason:", error.reason);
     process.exit(1); 
   });
-  
-
 
 // Transaction Schema
 const transactionSchema = new mongoose.Schema({
@@ -91,7 +89,6 @@ const User = mongoose.model("User", userSchema);
 //   }
 // };
 
-
 // Register Route
 app.post("/api/register", async (req, res) => {
   try {
@@ -104,7 +101,6 @@ app.post("/api/register", async (req, res) => {
       if(password !== confirmPassword) {
         return res.status(400).json({message: "Passwords do not match"});
       }
-
       const existingUser = await User.findOne({username});
       if(existingUser) {
         return res.status(400).json({message: "Username already exists"});
@@ -114,14 +110,12 @@ app.post("/api/register", async (req, res) => {
       const newUser=new User({username, email, password: hashedPassword});
       await newUser.save();
       console.log("User registered:", newUser);
-
       res.status(201).json({message: "User registered successfully"});
     } catch (error) {
       res.status(500).json({message: "Registration error", error: error.message});
     }
   });
      
-
 // Login Route
 app.post("/api/login", async (req, res) => {
   try {
@@ -136,7 +130,6 @@ app.post("/api/login", async (req, res) => {
       res.status(500).json({ message: "Login error", error: error.message });
   }
 });
-
 
 //user details route
 app.post("/api/user-details/:username", async (req, res) => {
@@ -185,12 +178,6 @@ app.post("/api/user-details/:username", async (req, res) => {
     res.status(500).json({ message: "Error saving user details", error: error.message });
   }
 });
-
-
-
-
-
-
 
 // Deposit Route
 app.post("/deposit", async (req, res) => {
@@ -283,9 +270,7 @@ app.post('/api/transaction/:type', async (req, res) => {
   // Add transaction
   user.transactions.push({ type, amount });
   await user.save();
-
   res.status(200).json({ message: "Transaction successful" });
-
 });
 
 app.get('/api/user/:username', async (req, res) => {
