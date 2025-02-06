@@ -78,18 +78,18 @@ const userSchema = new mongoose.Schema({
 const User = mongoose.model("User", userSchema);
 
 // Authentication Middleware
-const authenticateUser = (req, res, next) => {
-  try {
-    const token = req.header("Authorization");
-    if (!token) return res.status(401).json({ message: "Access denied" });
+// const authenticateUser = (req, res, next) => {
+//   try {
+//     const token = req.header("Authorization");
+//     if (!token) return res.status(401).json({ message: "Access denied" });
 
-    const decoded = jwt.verify(token.split(' ')[1], process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(403).json({ message: "Invalid token", error: error.message });
-  }
-};
+//     const decoded = jwt.verify(token.split(' ')[1], process.env.JWT_SECRET);
+//     req.user = decoded;
+//     next();
+//   } catch (error) {
+//     return res.status(403).json({ message: "Invalid token", error: error.message });
+//   }
+// };
 
 
 // Register Route
@@ -193,7 +193,7 @@ app.post("/api/user-details/:username", async (req, res) => {
 
 
 // Deposit Route
-app.post("/deposit", authenticateUser, async (req, res) => {
+app.post("/deposit", async (req, res) => {
   try {
       const { amount } = req.body;
       if (amount <= 0) return res.status(400).json({ message: "Invalid amount" });
@@ -210,7 +210,7 @@ app.post("/deposit", authenticateUser, async (req, res) => {
 });
 
 // Withdraw Route
-app.post("/withdraw", authenticateUser, async (req, res) => {
+app.post("/withdraw", async (req, res) => {
   try {
       const { amount } = req.body;
       const user = await User.findOne({ username: req.user.username });
@@ -227,26 +227,36 @@ app.post("/withdraw", authenticateUser, async (req, res) => {
 });
 
 // Transfer Route
-app.post("/transfer", authenticateUser, async (req, res) => {
-  try {
-    console.log(req.body);  // Check what’s actually being received
+app.post("/api/transfer", async (req, res) => {
+  const { sender, recipient, amount } = req.body;
 
-      const { recipientUserId, amount } = req.body;
-      const sender = await User.findOne({ username: req.user.username });
-      const recipient = await User.findOne({ userId: recipientUsername });
-      if (!recipient || sender.balance < amount) return res.status(400).json({ message: "Invalid transfer" });
-      sender.balance -= amount;
-      recipient.balance += amount;
-      const senderTransaction = new Transaction({ userId: sender._id, type: 'transfer', amount: -amount });
-      const recipientTransaction = new Transaction({ userId: recipient._id, type: 'transfer', amount });
-      await Promise.all([senderTransaction.save(), recipientTransaction.save(), sender.save(), recipient.save()]);
-      sender.transactions.push(senderTransaction._id);
-      recipient.transactions.push(recipientTransaction._id);
-      await Promise.all([sender.save(), recipient.save()]);
-      res.status(200).json({ message: "Transfer successful", senderBalance: sender.balance });
-  } catch (error) {
-      res.status(500).json({ message: "Transfer error", error: error.message });
-  }
+  if (!sender || !recipient || !amount || amount <= 0) {
+    return res.status(400).json({ success: false, message: "Invalid input!" });
+}
+try {
+  const senderUser = await User.findOne({ accountNumber: sender });
+  const recipientUser = await User.findOne({ accountNumber: recipient });
+
+  if (!senderUser) return res.status(404).json({ success: false, message: "Sender not found!" });
+  if (!recipientUser) return res.status(404).json({ success: false, message: "Recipient not found!" });
+  if (senderUser.balance < amount) return res.status(400).json({ success: false, message: "Insufficient balance!" });
+
+  // Perform Transfer
+  senderUser.balance -= amount;
+  recipientUser.balance += amount;
+
+  // Save Transactions
+  senderUser.transactions.push({ type: "Sent", amount, date: new Date(), to: recipientUser.name });
+  recipientUser.transactions.push({ type: "Received", amount, date: new Date(), from: senderUser.name });
+
+  await senderUser.save();
+  await recipientUser.save();
+
+  res.json({ success: true, message: "Transfer Successful!" });
+} catch (error) {
+  console.error("Transfer Error:", error);
+  res.status(500).json({ success: false, message: "Server error!" });
+}
 });
 
 // Transaction History
@@ -344,4 +354,6 @@ app.post("/api/user-details", async (req, res) => {
     res.status(500).json({ message: "Error saving user details", error: error.message });
   }
 });
+
+
 
